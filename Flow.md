@@ -1,5 +1,9 @@
 # Flow — Simulating the CSRF Attack
 
+> This walkthrough describes the original vulnerability. CSRF protection is now
+> implemented: the attacker form should return `403`, leave the recovery email
+> unchanged, and the test suite should pass. See [SECURITY-FIXES.md](SECURITY-FIXES.md).
+
 This project ships a **deliberately vulnerable** feature: the **account recovery email**
 (`/settings`). Changing it is a sensitive, state-changing action — whoever controls your
 recovery email can request password-reset links and take over your account.

@@ -1,5 +1,11 @@
 # Task 5 (Variant): Campus Lost & Found — With Account Settings
 
+Implementation notes and the dialog investigation are in [SECURITY-FIXES.md](SECURITY-FIXES.md).
+Tests and Jest/Babel configuration are checked in; no VS Code startup tasks are needed.
+Copy `server/.env.example` to `server/.env` and set your own MongoDB URI and secrets.
+The attack walkthrough below describes the original vulnerable behavior. With the
+fix, the forged POST must return `403` and leave the recovery email unchanged.
+
 We are building on top of the Campus Lost & Found variant from Task 3. Previously we
 implemented `JWT` authentication; now the session is stored in a cookie and a new account
 **settings** feature (a recovery email) has been added. Let us first start with some context.
@@ -126,8 +132,8 @@ npm install     # first time only
 npm test
 ```
 
-The `CSRF` tests describe the **secure** behavior and are **expected to FAIL** in this project (the
-suite is red). Your job is to make them green by applying the fix.
+The `CSRF` tests describe the **secure** behavior. They failed in the original
+vulnerable project and should now pass with the implemented protection.
 
 ### Custom Configurations
 
