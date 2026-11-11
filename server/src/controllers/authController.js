@@ -13,7 +13,7 @@ function setAuthCookie(res, token) {
   res.cookie('token', token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: false, // true in production (HTTPS only)
+    secure: process.env.NODE_ENV === 'production',
     maxAge: COOKIE_MAX_AGE
   });
 }

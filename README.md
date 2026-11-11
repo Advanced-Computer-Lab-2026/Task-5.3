@@ -47,6 +47,7 @@ PORT=4000
 MONGO_URI=mongodb://tasks:pass1234@ac-j3acrgb-shard-00-00.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-01.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-02.lueesfz.mongodb.net:27017/?ssl=true&replicaSet=atlas-6to6iy-shard-0&authSource=admin&appName=Cluster0
 JWT_SECRET=4a498d90a0f923ae4b3f1f65571ff25985d17e2f3286e8e90383e449f68a40a8
 JWT_EXPIRES_IN=7d
+CSRF_SECRET=<a long, random secret dedicated to CSRF token signing>
 ```
 
 ## What was added on top of Task 3
@@ -69,6 +70,9 @@ JWT_EXPIRES_IN=7d
     - `GET /api/settings`: returns the logged-in user's settings.
     - `POST /api/settings/recovery-email`: updates the logged-in user's recovery email. The
       recovery email is security-sensitive — it receives password-reset links.
+- Authenticated state-changing requests require a `csrf-csrf` double-submit token. The client
+  fetches it from `GET /api/csrf-token` and sends it in the `x-csrf-token` header. Login and
+  registration remain exempt because they establish a session; safe `GET` requests are exempt.
 
 ### Client
 
@@ -85,10 +89,10 @@ JWT_EXPIRES_IN=7d
 For this you will **not** need Postman — a `CSRF` attack is carried out by a webpage, not a crafted
 API client. The `attacker/` folder is a small, separate Express server that plays the role of a
 malicious site the victim visits. Look through the `Flow.md` Markdown file for the detailed steps
-to simulate the `CSRF` attack (register a victim, run the attacker server, open its link, and watch
-the victim's recovery email get silently overwritten).
+to simulate the forged request and verify that CSRF protection rejects it with `403` and leaves
+the victim's recovery email unchanged.
 
-Please note that the demo works over `http://localhost` because the attacker's port
+Please note that the demo targets `http://localhost` because the attacker's port
 (`localhost:1337`) and the API's port (`localhost:4000`) are the **same site** — a cookie's
 `SameSite` attribute keys off the registrable domain, not the port, so the `SameSite=Lax` auth
 cookie is still sent. This is a deliberate lesson: `SameSite` is a useful layer but **not** a
