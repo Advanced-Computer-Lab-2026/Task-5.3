@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { requireAuth } from './middleware/auth.js';
+import { csrfProtection, issueCsrfToken } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,6 +22,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// The SPA obtains a token after authentication and echoes it in a header on
+// every state-changing request. The CSRF cookie itself stays httpOnly.
+app.get('/api/csrf-token', requireAuth, issueCsrfToken);
+
+// Protect all state-changing API requests. The only exemptions are the
+// pre-authentication routes, which cannot have an authenticated session yet.
+app.use(csrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
