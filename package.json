@@ -9,13 +9,14 @@
   "scripts": {
     "install:all": "npm --workspaces install",
     "dev": "concurrently -n server,client -c blue,magenta \"npm:dev --workspace server\" \"npm:dev --workspace client\"",
-    "test": "jest"
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
     "babel-jest": "^30.0.0",
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.0.0",
     "mongodb-memory-server": "^11.3.0",

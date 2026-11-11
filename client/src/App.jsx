@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, Link, Navigate } from 'react-router-dom'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
@@ -6,9 +7,17 @@ import ItemForm from './pages/ItemForm.jsx'
 import Settings from './pages/Settings.jsx'
 import { useAuth } from './hooks/useAuth.js'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import { fetchCsrfToken } from './api.js'
 
 export default function App() {
   const { user, logout } = useAuth()
+
+  useEffect(() => {
+    fetchCsrfToken().catch((error) => {
+      console.error('Failed to fetch CSRF token:', error)
+    })
+  }, [])
+
   return (
     <div className="container">
       <nav className="flex items-center justify-between mb-6">
