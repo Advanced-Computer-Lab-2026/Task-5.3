@@ -1,14 +1,27 @@
+
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { getAllItems, getItem, createItem, updateItem, deleteItem } from '../controllers/itemController.js';
+import { doubleCsrfProtection } from '../middleware/csrf.js';
+
+import {
+  getAllItems,
+  getItem,
+  createItem,
+  updateItem,
+  deleteItem
+} from '../controllers/itemController.js';
 
 const router = Router();
 
-// Reading is public; writing requires a logged-in user.
+// Public read operations — no CSRF token needed
 router.get('/', getAllItems);
 router.get('/:id', getItem);
-router.post('/', requireAuth, createItem);
-router.patch('/:id', requireAuth, updateItem);
-router.delete('/:id', requireAuth, deleteItem);
+
+// Authenticated write operations — CSRF protection required
+router.post('/', requireAuth, doubleCsrfProtection, createItem);
+
+router.patch('/:id', requireAuth, doubleCsrfProtection, updateItem);
+
+router.delete('/:id', requireAuth, doubleCsrfProtection, deleteItem);
 
 export default router;
