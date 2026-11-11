@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfProtection, csrfTokenHandler } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,6 +21,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Anti-CSRF: the client fetches a token here, then sends it in the
+// `x-csrf-token` header on every state-changing request. The check below
+// rejects (403) any POST/PATCH/DELETE without a valid token — e.g. the
+// attacker's auto-submitting form. GETs and login/register are exempt.
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use(csrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
