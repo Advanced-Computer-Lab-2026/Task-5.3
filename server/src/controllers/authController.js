@@ -10,13 +10,6 @@ const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 // it (good against XSS token theft) — but the browser sends it automatically,
 // which is the precondition for CSRF.
 function setAuthCookie(res, token) {
-  // Remove a CSRF token belonging to the previous login session.
-  res.clearCookie('csrf-token', {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: false,
-    path: '/'
-  });
 
   res.cookie('token', token, {
     httpOnly: true,
