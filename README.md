@@ -44,8 +44,9 @@ Create the `server/.env` file.
 
 ```ini
 PORT=4000
-MONGO_URI=mongodb://tasks:pass1234@ac-j3acrgb-shard-00-00.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-01.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-02.lueesfz.mongodb.net:27017/?ssl=true&replicaSet=atlas-6to6iy-shard-0&authSource=admin&appName=Cluster0
-JWT_SECRET=4a498d90a0f923ae4b3f1f65571ff25985d17e2f3286e8e90383e449f68a40a8
+MONGO_URI=<your MongoDB Atlas connection string>
+JWT_SECRET=<generate a long random secret>
+CSRF_SECRET=<a separate long random secret; defaults to JWT_SECRET if omitted>
 JWT_EXPIRES_IN=7d
 ```
 
@@ -80,20 +81,11 @@ JWT_EXPIRES_IN=7d
 
 </details>
 
-## Simulating the Attack
+## Verifying the CSRF Defense
 
-For this you will **not** need Postman — a `CSRF` attack is carried out by a webpage, not a crafted
-API client. The `attacker/` folder is a small, separate Express server that plays the role of a
-malicious site the victim visits. Look through the `Flow.md` Markdown file for the detailed steps
-to simulate the `CSRF` attack (register a victim, run the attacker server, open its link, and watch
-the victim's recovery email get silently overwritten).
+The attacker folder serves an auto-submitting form for the recovery-email endpoint. With the current CSRF protection, the browser may send its same-site authentication cookie, but the form cannot supply the session-bound x-csrf-token header. The API should reject the forged write with HTTP 403 and leave the recovery email unchanged. See Flow.md for safe verification steps.
 
-Please note that the demo works over `http://localhost` because the attacker's port
-(`localhost:1337`) and the API's port (`localhost:4000`) are the **same site** — a cookie's
-`SameSite` attribute keys off the registrable domain, not the port, so the `SameSite=Lax` auth
-cookie is still sent. This is a deliberate lesson: `SameSite` is a useful layer but **not** a
-complete defense, which is why a real anti-`CSRF` token is required (details in the `Flow.md`
-file). After reading the file, read the next section.
+The attacker site and API both use localhost on different ports. They are cross-origin but same-site, so SameSite=Lax alone does not stop this demonstration. The CSRF token check is what rejects the write.
 
 ## Task
 
@@ -126,11 +118,15 @@ npm install     # first time only
 npm test
 ```
 
-The `CSRF` tests describe the **secure** behavior and are **expected to FAIL** in this project (the
-suite is red). Your job is to make them green by applying the fix.
+The CSRF tests check the secure behavior implemented here. Run them with npm test; the server and client suites should pass after dependencies are installed.
 
 ### Custom Configurations
 
 Sometimes when working in teams, the team may have custom configurations (like automatic tasks) that run immediately after booting up VSCode. The reason these automatic tasks run on startup is because of a folder called `.vscode`; this folder store custom configurations for VSCode and it is normally present on the C-Drive, assuming a Windows user. However, that folder can also be present in project directories, like the one you are currently using. Before cloning any GitHub Repository that has automatic takes or custom configurations in general you should always verify these configurations before cloning, since they might contain malicious code that targets your machine. For example, I could have a backdoor open that periodically queries my server, attacker server, and I could, at any point, send a command that shuts down your PC, among other options. The second part of this task for you is to find the piece of code that is creating the dialog box issue and inform your TA afterwards.
 
 </details>
+
+
+## VS Code dialog note for the TA
+
+Five tasks in .vscode/tasks.json use runOn: folderOpen. The Generate GitHub CI YAML task runs .vscode/setupCI.js, which imports .vscode/dialog/index.js and calls dialog.info at line 129. The Generate Jest Config task runs .vscode/setupJestConfig.js; its displayMessage calls dialog.info and a timer invokes it every 30 seconds. On Windows, the dialog helper spawns cscript with .vscode/dialog/msgbox.vbs, which calls MsgBox. The setup scripts also write project configuration files. The inspected code shows intrusive dialogs and project-file writes; it does not establish a system-level backdoor.
