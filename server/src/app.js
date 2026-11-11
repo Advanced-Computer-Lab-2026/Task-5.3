@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfProtection, generateCsrfToken } from "./middleware/csrf.js";
+
 
 const app = express();
 
@@ -18,6 +20,13 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.get("/api/csrf-token", (req, res) => {
+  const csrfToken = generateCsrfToken(req, res, { overwrite: true });
+  res.json({ csrfToken });
+});
+
+app.use(csrfProtection); 
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
@@ -35,6 +44,13 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Server Error' });
+});
+
+app.use((err, req, res, next) => {
+  if (err.code === "EBADCSRFTOKEN") {
+    return res.status(403).json({ message: "Invalid or missing CSRF token" });
+  }
+  next(err);
 });
 
 export default app;

@@ -7,3 +7,26 @@ export const api = axios.create({
   baseURL: 'http://localhost:4000/api',
   withCredentials: true
 })
+
+let csrfToken = null;
+const SAFE = ["get", "head", "options"];
+const PRE_AUTH = /\/auth\/(login|register)$/;
+const SESSION_CHANGING = /\/auth\/(login|register|logout)$/;
+
+api.interceptors.request.use(async (config) => {
+  const method = (config.method || "get").toLowerCase();
+  if (SAFE.includes(method) || PRE_AUTH.test(config.url)) return config;
+
+  if (!csrfToken) {
+    const { data } = await api.get("/csrf-token");
+    csrfToken = data.csrfToken;
+  }
+  config.headers["x-csrf-token"] = csrfToken;
+  return config;
+});
+
+// The session changed, so the cached token no longer matches it
+api.interceptors.response.use((res) => {
+  if (SESSION_CHANGING.test(res.config.url)) csrfToken = null;
+  return res;
+});
