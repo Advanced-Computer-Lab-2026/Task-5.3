@@ -30,3 +30,9 @@ Thumbs.db
 # Server-side specific ignores (if server is in a subfolder)
 server/node_modules/
 server/build/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+server/.env
