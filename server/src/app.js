@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { requireAuth } from './middleware/auth.js';
+import { generateCsrfToken, doubleCsrfProtection, invalidCsrfTokenError } from './middleware/csrf.js';
 
 const app = express();
 
@@ -21,6 +23,23 @@ app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
+const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
+const preAuthRoutes = new Set(['/auth/login', '/auth/register']);
+
+// Protect all API writes, including logout. Only login/register run before a session.
+app.use('/api', (req, res, next) => {
+  const path = req.path.toLowerCase().replace(/\/$/, '');
+  if (safeMethods.has(req.method) || (req.method === 'POST' && preAuthRoutes.has(path))) {
+    return next();
+  }
+  return requireAuth(req, res, () => doubleCsrfProtection(req, res, next));
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
@@ -33,6 +52,9 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
+  if (err === invalidCsrfTokenError) {
+    return res.status(403).json({ message: 'Invalid or missing CSRF token' });
+  }
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Server Error' });
 });
