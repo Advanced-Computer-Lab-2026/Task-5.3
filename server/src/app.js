@@ -6,13 +6,18 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfTokenHandler, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
 app.use(morgan('dev'));
 // The browser must be allowed to send the auth cookie on cross-origin XHR,
 // so CORS is locked to the client origin AND credentials are enabled.
-app.use(cors({ origin: 'http://localhost:5175', credentials: true }));
+app.use(cors({
+  origin: 'http://localhost:5175',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'x-csrf-token']
+}));
 app.use(express.json());
 // Parse HTML-form bodies too. A classic CSRF payload is an auto-submitting
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
@@ -20,6 +25,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// CSRF protection (double-submit cookie, via csrf-csrf). Must come after
+// cookieParser. The token endpoint is a safe GET; every other state-changing
+// request (POST/PUT/PATCH/DELETE) below must carry a valid x-csrf-token header.
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use(doubleCsrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
