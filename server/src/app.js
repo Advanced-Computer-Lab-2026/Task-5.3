@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfTokenHandler, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,6 +21,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Anti-CSRF: issue a per-session token, then require it (x-csrf-token header) on
+// every state-changing request. GET/HEAD/OPTIONS and the pre-auth routes
+// (login/register) are exempt. Must run after cookieParser and before the routes.
+// CORS and SameSite alone do not stop CSRF: CORS only blocks *reading* the
+// response, and SameSite ignores ports (localhost:1337 and :4000 are same-site).
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use(doubleCsrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
