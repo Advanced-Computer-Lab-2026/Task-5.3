@@ -47,7 +47,30 @@ PORT=4000
 MONGO_URI=mongodb://tasks:pass1234@ac-j3acrgb-shard-00-00.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-01.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-02.lueesfz.mongodb.net:27017/?ssl=true&replicaSet=atlas-6to6iy-shard-0&authSource=admin&appName=Cluster0
 JWT_SECRET=4a498d90a0f923ae4b3f1f65571ff25985d17e2f3286e8e90383e449f68a40a8
 JWT_EXPIRES_IN=7d
+CSRF_SECRET=<an independent random secret; see below>
 ```
+
+Generate a separate CSRF secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`
+and place the result in `CSRF_SECRET`. The API refuses to start without it.
+
+## CSRF protection in this implementation
+
+Authenticated clients fetch `GET /api/csrf-token` and send the returned `csrfToken`
+in the `x-csrf-token` header on every write. The Axios interceptor handles this for
+settings, items, users, and logout. Login/register remain exempt; GET, HEAD, and
+OPTIONS do not require a CSRF token. Tokens are bound to the current JWT session.
+The token endpoint is authenticated and returns `Cache-Control: no-store`.
+
+The separate CSRF cookie is HttpOnly, host-only, uses `Path=/` and `SameSite=Lax`,
+and is named `csrf-token` on local HTTP. With `NODE_ENV=production`, it is named
+`__Host-csrf-token` and requires HTTPS (`Secure`). Session changes clear this cookie.
+The token is read from the endpoint response, never from cookies by client JavaScript.
+
+Run `npm test -- --runInBand` and `npm run build --workspace client` to verify.
+The historical vulnerable behavior described below and in `Flow.md` is the attack
+baseline; the CSRF tests should now pass. Repeat the browser attack using a local
+test database: save a legitimate email, open the attacker page, confirm its POST
+returns 403, then refresh Settings and confirm the legitimate email is unchanged.
 
 ## What was added on top of Task 3
 
