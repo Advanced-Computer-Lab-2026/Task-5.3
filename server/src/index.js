@@ -6,6 +6,9 @@ import { connectDB } from './config/db.js';
 const PORT = process.env.PORT || 4000;
 
 async function bootstrap() {
+  if (!process.env.CSRF_SECRET) {
+    throw new Error('CSRF_SECRET is not set in server/.env');
+  }
   await connectDB();
   app.listen(PORT, () => {
     console.log(`API listening on http://localhost:${PORT}`);
