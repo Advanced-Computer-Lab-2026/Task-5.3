@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { api } from '../api'
+import { api, setCsrfToken } from '../api'
 
 const AuthContext = createContext(null)
 
@@ -12,7 +12,14 @@ export function AuthProvider({ children }) {
   // are; if the cookie is valid it answers with the user, otherwise 401.
   useEffect(() => {
     api.get('/auth/me')
-      .then(res => setUser(res.data.user || null))
+      .then(async res => {
+        const authenticatedUser = res.data.user || null
+        setUser(authenticatedUser)
+        if (authenticatedUser) {
+          const csrf = await api.get('/csrf-token')
+          setCsrfToken(csrf.data.csrfToken)
+        }
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
@@ -20,15 +27,20 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const res = await api.post('/auth/login', { email, password })
     setUser(res.data.user)
+    const csrf = await api.get('/csrf-token')
+    setCsrfToken(csrf.data.csrfToken)
   }, [])
 
   const register = useCallback(async (name, email, password) => {
     const res = await api.post('/auth/register', { name, email, password })
     setUser(res.data.user)
+    const csrf = await api.get('/csrf-token')
+    setCsrfToken(csrf.data.csrfToken)
   }, [])
 
   const logout = useCallback(async () => {
     try { await api.post('/auth/logout') } catch { /* ignore */ }
+    setCsrfToken(null)
     setUser(null)
     window.location.href = '/login'
   }, [])
