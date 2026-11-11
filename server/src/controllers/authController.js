@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import Joi from 'joi';
 import { User } from '../models/User.js';
+import { CSRF_COOKIE_NAME } from '../middleware/csrf.js';
 
 // How long the auth cookie lives, in ms (mirrors JWT_EXPIRES_IN's default of 7d).
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -67,6 +68,7 @@ export async function login(req, res, next) {
 // POST /api/auth/logout
 export async function logout(req, res) {
   res.clearCookie('token');
+  res.clearCookie(CSRF_COOKIE_NAME, { path: '/' });
   res.json({ ok: true });
 }
 
