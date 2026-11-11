@@ -1,13 +1,35 @@
+
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { getSettings, updateRecoveryEmail } from '../controllers/settingController.js';
+
+import {
+  generateCsrfToken,
+  doubleCsrfProtection
+} from '../middleware/csrf.js';
+
+import {
+  getSettings,
+  updateRecoveryEmail
+} from '../controllers/settingController.js';
 
 const router = Router();
 
-// Reading and writing both require a logged-in user. Nothing here checks that
-// the request actually originated from our own app — so the write below is
-// vulnerable to CSRF. The solution project adds that check with `csrf-csrf`.
+// Generate a CSRF token for the authenticated user.
+router.get('/csrf-token', requireAuth, (req, res) => {
+  const csrfToken = generateCsrfToken(req, res);
+
+  res.json({ csrfToken });
+});
+
+// Reading settings only requires authentication.
 router.get('/', requireAuth, getSettings);
-router.post('/recovery-email', requireAuth, updateRecoveryEmail);
+
+// Updating settings requires BOTH authentication and CSRF validation.
+router.post(
+  '/recovery-email',
+  requireAuth,
+  doubleCsrfProtection,
+  updateRecoveryEmail
+);
 
 export default router;
