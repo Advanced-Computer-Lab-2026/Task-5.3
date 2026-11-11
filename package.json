@@ -1,0 +1,28 @@
+{
+  "name": "task-3-lostfound",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "type": "module",
+  "scripts": {
+    "install:all": "npm --workspaces install",
+    "dev": "concurrently -n server,client -c blue,magenta \"npm:dev --workspace server\" \"npm:dev --workspace client\"",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "babel-jest": "^30.0.0",
+    "concurrently": "^8.2.2",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.0.0",
+    "mongodb-memory-server": "^11.3.0",
+    "supertest": "^7.0.0"
+  },
+  "allowScripts": {
+    "mongodb-memory-server@11.3.0": true,
+    "@parcel/watcher@2.6.0": true
+  }
+}

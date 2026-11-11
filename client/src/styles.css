@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0b1020;
+}
+body { @apply bg-zinc-50 text-zinc-900; }
+.container { @apply max-w-5xl mx-auto p-4; }
+.btn { @apply inline-flex items-center gap-2 rounded-lg px-4 py-2 font-medium border border-zinc-300 hover:bg-zinc-100; }
+.input { @apply w-full rounded-lg border border-zinc-300 px-3 py-2; }
+.card { @apply rounded-2xl border border-zinc-200 p-4 shadow-sm bg-white; }
