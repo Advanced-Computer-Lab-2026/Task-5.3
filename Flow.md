@@ -1,8 +1,9 @@
 # Flow — Simulating the CSRF Attack
 
-This project ships a **deliberately vulnerable** feature: the **account recovery email**
-(`/settings`). Changing it is a sensitive, state-changing action — whoever controls your
-recovery email can request password-reset links and take over your account.
+The **account recovery email** (`/settings`) is a sensitive, state-changing action — whoever
+controls it can request password-reset links and take over your account. The original version
+was vulnerable to CSRF; the current version requires an anti-CSRF token and rejects the forged
+request described below.
 
 The app authenticates every request with a **JWT stored in an httpOnly cookie**. Because the
 browser attaches that cookie **automatically** to *every* request to the API — including
@@ -81,14 +82,14 @@ It looks like a harmless "You won a prize!" page. But on load it **auto-submits 
 form** that POSTs to `http://localhost:4000/api/settings/recovery-email` with
 `recoveryEmail=attacker@evil.com`, targeting a hidden iframe so you see nothing.
 
-Now go back to the app tab and **refresh the Settings page** (or `GET
-http://localhost:4000/api/settings` in a logged-in tab). The recovery email is now
-**`attacker@evil.com`** — changed without your consent. From here the attacker triggers a
-password reset and receives the link. **Account takeover.**
+Now check the attacker page's Network tab. The forged request should return **403 Forbidden**
+because the form cannot provide the victim's CSRF token. Go back to the app and refresh Settings:
+the recovery email should still be the value you entered. Before the fix, this same request
+returned `200` and silently changed the email.
 
-> Want to watch it happen? Open DevTools → **Network** on the attacker page before it loads,
-> and you will see the cross-site `POST` to `/api/settings/recovery-email` return `200`, with
-> your `token` cookie attached under **Request Headers → Cookie**.
+> Want to watch it happen? Open DevTools → **Network** on the attacker page before it loads.
+> The browser still sends the auth cookie, but the API rejects the write with `403` because
+> the request has no valid `x-csrf-token` header.
 
 ---
 
@@ -129,13 +130,12 @@ npm install     # first time only
 npm test
 ```
 
-What to expect **in this vulnerable project**:
+The tests verify the secure behavior:
 
-- The tests describe the **secure** behavior the feature *should* have: a forged request with no
-  CSRF token is rejected (server), and the client attaches a CSRF token to mutating requests.
-- So here they are **expected to FAIL** (the suite is red). That red result is the starting
-  point — your job is to make them green by adding CSRF protection. The solution project shows
-  them all passing.
+- A forged request with no CSRF token is rejected, and the legitimate settings update succeeds
+  when the client provides a valid token.
+- The client attaches the token to mutating requests.
+- All tests should pass after the fix.
 
 Notes:
 
