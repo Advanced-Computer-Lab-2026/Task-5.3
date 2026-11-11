@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { requireAuth } from './middleware/auth.js';
+import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,6 +22,19 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Issues the CSRF token (needs a logged-in session, since the token is bound to it)
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
+// Require the token on every state-changing request.
+// GETs are exempt (ignoredMethods); login/register are exempt (no session yet).
+const PRE_AUTH = ['/api/auth/login', '/api/auth/register'];
+app.use((req, res, next) => {
+  if (PRE_AUTH.includes(req.path)) return next();
+  return doubleCsrfProtection(req, res, next);
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
