@@ -7,3 +7,18 @@ export const api = axios.create({
   baseURL: 'http://localhost:4000/api',
   withCredentials: true
 })
+
+const csrfExemptPaths = ['/auth/login', '/auth/register']
+const mutatingMethods = new Set(['post', 'put', 'patch', 'delete'])
+
+api.interceptors.request.use(async config => {
+  const method = (config.method || 'get').toLowerCase()
+  const url = config.url || ''
+  if (!mutatingMethods.has(method) || csrfExemptPaths.some(path => url.includes(path))) {
+    return config
+  }
+
+  const { data } = await api.get('/csrf-token')
+  config.headers['x-csrf-token'] = data.csrfToken
+  return config
+})
