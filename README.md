@@ -49,6 +49,8 @@ JWT_SECRET=4a498d90a0f923ae4b3f1f65571ff25985d17e2f3286e8e90383e449f68a40a8
 JWT_EXPIRES_IN=7d
 ```
 
+Generate a separate CSRF signing secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and add the result to `server/.env` as `CSRF_SECRET`.
+
 ## What was added on top of Task 3
 
 <details>

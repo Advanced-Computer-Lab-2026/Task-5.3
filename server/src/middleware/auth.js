@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 
+import { doubleCsrfProtection } from './csrf.js';
+
 export function requireAuth(req, res, next) {
   // The JWT now rides in an httpOnly cookie instead of the Authorization header.
   // The browser attaches it automatically on every request to this origin —
@@ -10,8 +12,8 @@ export function requireAuth(req, res, next) {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     req.user = payload;
-    return next();
   } catch (err) {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
+  return doubleCsrfProtection(req, res, next);
 }
