@@ -1,4 +1,5 @@
-import express from 'express';
+import { requireAuth } from './middleware/auth.js';
+import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -18,7 +19,12 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
 
+app.use(doubleCsrfProtection);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
