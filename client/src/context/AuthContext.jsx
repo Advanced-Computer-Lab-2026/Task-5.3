@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { api } from '../api'
 
+import { api, resetCsrfToken } from '../api'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
@@ -17,18 +17,21 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false))
   }, [])
 
-  const login = useCallback(async (email, password) => {
+    const login = useCallback(async (email, password) => {
     const res = await api.post('/auth/login', { email, password })
+    resetCsrfToken() // new session cookie, so the old CSRF token is no longer valid
     setUser(res.data.user)
   }, [])
 
   const register = useCallback(async (name, email, password) => {
     const res = await api.post('/auth/register', { name, email, password })
+    resetCsrfToken()
     setUser(res.data.user)
   }, [])
 
   const logout = useCallback(async () => {
     try { await api.post('/auth/logout') } catch { /* ignore */ }
+    resetCsrfToken()
     setUser(null)
     window.location.href = '/login'
   }, [])
