@@ -22,9 +22,9 @@ export async function getSettings(req, res, next) {
 
 // POST /api/settings/recovery-email — change the recovery email.
 //
-// This is a state-changing request authenticated ONLY by the auth cookie the
-// browser sends automatically. There is no anti-CSRF token, so any page the
-// victim visits can forge this request on their behalf. That is the vulnerability.
+// State-changing, so it is protected by the CSRF middleware mounted in app.js:
+// the auth cookie alone is not enough, the request must also carry a valid
+// x-csrf-token header that a cross-site page can neither read nor guess.
 export async function updateRecoveryEmail(req, res, next) {
   try {
     const { value, error } = recoveryEmailSchema.validate({ recoveryEmail: req.body.recoveryEmail });
