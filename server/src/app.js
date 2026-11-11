@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { doubleCsrfProtection, csrfTokenHandler } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,8 +21,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/csrf-token', csrfTokenHandler);
 
+// Pre-auth routes (register/login/logout/me) are mounted BEFORE the CSRF check:
+// login/register run before a session exists, so there is nothing to protect yet.
 app.use('/api/auth', authRoutes);
+
+// Every route below this line needs a valid CSRF token on state-changing methods
+// (POST/PUT/PATCH/DELETE). Safe GET requests pass through untouched.
+app.use(doubleCsrfProtection);
+
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
