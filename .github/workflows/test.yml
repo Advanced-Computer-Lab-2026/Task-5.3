@@ -1,0 +1,28 @@
+
+name: Test Task 5.3
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run tests
+        env:
+          CSRF_SECRET: test-only-ci-secret-123456789012345
+          NODE_ENV: test
+        run: npm test
