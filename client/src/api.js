@@ -1,9 +1,24 @@
 import axios from 'axios'
 
-// `withCredentials: true` makes the browser send (and store) the auth cookie on
-// cross-origin requests to the API. The JWT is no longer kept in localStorage,
-// so there is no token to attach by hand anymore.
 export const api = axios.create({
   baseURL: 'http://localhost:4000/api',
   withCredentials: true
+})
+
+let csrfToken = null
+
+export const resetCsrfToken = () => { csrfToken = null }
+
+api.interceptors.request.use(async (config) => {
+  const method = (config.method || 'get').toLowerCase()
+  const safe = ['get', 'head', 'options'].includes(method)
+  const preAuth = ['/auth/login', '/auth/register'].includes(config.url)
+  if (!safe && !preAuth) {
+    if (!csrfToken) {
+      const { data } = await api.get('/csrf-token')
+      csrfToken = data.csrfToken
+    }
+    config.headers['X-CSRF-Token'] = csrfToken
+  }
+  return config
 })
