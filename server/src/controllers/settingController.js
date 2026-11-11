@@ -20,6 +20,7 @@ export async function getSettings(req, res, next) {
   } catch (err) { next(err); }
 }
 
+
 // POST /api/settings/recovery-email — change the recovery email.
 //
 // This is a state-changing request authenticated ONLY by the auth cookie the

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { api } from '../api'
-
+import api, { resetCsrf } from "../api";
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
