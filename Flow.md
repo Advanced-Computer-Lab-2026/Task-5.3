@@ -29,6 +29,7 @@ PORT=4000
 MONGO_URI=<your MongoDB connection string>
 JWT_SECRET=<any long random string>
 JWT_EXPIRES_IN=7d
+CSRF_SECRET=<an independent random secret, generated as described in README.md>
 ```
 
 Start the app:
@@ -70,6 +71,10 @@ npm start            # Attacker site on http://localhost:1337
 ---
 
 ## 3. Spring the trap
+
+**With the fix applied:** the form POST must return `403`, and the saved email must
+remain unchanged. The `200` response and overwrite described below document the
+original vulnerable baseline. Use a local test database for this demonstration.
 
 In the **same browser** where you are logged in as the victim, open:
 
@@ -130,6 +135,9 @@ npm test
 ```
 
 What to expect **in this vulnerable project**:
+
+After applying the CSRF fix, both suites should pass. The following failures
+describe the original baseline.
 
 - The tests describe the **secure** behavior the feature *should* have: a forged request with no
   CSRF token is rejected (server), and the client attaches a CSRF token to mutating requests.
