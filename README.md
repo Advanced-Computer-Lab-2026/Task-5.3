@@ -126,8 +126,8 @@ npm install     # first time only
 npm test
 ```
 
-The `CSRF` tests describe the **secure** behavior and are **expected to FAIL** in this project (the
-suite is red). Your job is to make them green by applying the fix.
+The `CSRF` tests describe the secure behavior. They should pass with the protection implemented:
+forged writes without a CSRF token are rejected, while legitimate writes from the client work.
 
 ### Custom Configurations
 

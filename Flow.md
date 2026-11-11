@@ -81,18 +81,20 @@ It looks like a harmless "You won a prize!" page. But on load it **auto-submits 
 form** that POSTs to `http://localhost:4000/api/settings/recovery-email` with
 `recoveryEmail=attacker@evil.com`, targeting a hidden iframe so you see nothing.
 
-Now go back to the app tab and **refresh the Settings page** (or `GET
-http://localhost:4000/api/settings` in a logged-in tab). The recovery email is now
-**`attacker@evil.com`** — changed without your consent. From here the attacker triggers a
-password reset and receives the link. **Account takeover.**
+Before the fix, go back to the app tab and **refresh the Settings page** (or `GET
+http://localhost:4000/api/settings` in a logged-in tab): the recovery email becomes
+**`attacker@evil.com`**. After the fix, repeat the same attack. The forged POST has no
+`x-csrf-token` header, so the API should return **403 Forbidden** and the recovery email
+should remain unchanged. A legitimate update from the app still succeeds because the client
+first fetches a CSRF token and sends it with the write.
 
 > Want to watch it happen? Open DevTools → **Network** on the attacker page before it loads,
-> and you will see the cross-site `POST` to `/api/settings/recovery-email` return `200`, with
-> your `token` cookie attached under **Request Headers → Cookie**.
+> and you will see the cross-site `POST` to `/api/settings/recovery-email` return `403`, with
+> the auth `token` cookie attached but no `x-csrf-token` header.
 
 ---
 
-## 4. Why it works (the vulnerable code path)
+## 4. Why it worked before the fix (the vulnerable code path)
 
 1. **Auth is a cookie the browser sends for you** — `server/src/middleware/auth.js` reads the
    JWT from `req.cookies.token`. The victim's browser attaches it to the attacker's forged
@@ -129,13 +131,10 @@ npm install     # first time only
 npm test
 ```
 
-What to expect **in this vulnerable project**:
+What to expect after applying the fix:
 
-- The tests describe the **secure** behavior the feature *should* have: a forged request with no
-  CSRF token is rejected (server), and the client attaches a CSRF token to mutating requests.
-- So here they are **expected to FAIL** (the suite is red). That red result is the starting
-  point — your job is to make them green by adding CSRF protection. The solution project shows
-  them all passing.
+- The tests verify both the server rejection of forged writes and the client's CSRF header.
+- Run `npm test`; the suite should pass after CSRF protection is in place.
 
 Notes:
 
