@@ -11,7 +11,7 @@ beforeAll(async () => {
   process.env.CSRF_SECRET = 'test-csrf-secret';
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
-}, 600000);
+}, 60000);
 
 afterAll(async () => {
   await mongoose.disconnect();
