@@ -2,6 +2,8 @@ import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import { doubleCsrfProtection, generateCsrfToken } from './middleware/csrf.js';
+import { requireAuth } from './middleware/auth.js';
 import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
@@ -19,7 +21,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Login and registration establish the cookie session and therefore have no
+// CSRF token yet. All other unsafe methods, including logout, require one.
+app.use((req, res, next) => {
+  if (req.method === 'POST' && ['/api/auth/login', '/api/auth/register'].includes(req.path)) {
+    return next();
+  }
+  return doubleCsrfProtection(req, res, next);
+});
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
