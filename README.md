@@ -45,8 +45,9 @@ Create the `server/.env` file.
 ```ini
 PORT=4000
 MONGO_URI=mongodb://tasks:pass1234@ac-j3acrgb-shard-00-00.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-01.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-02.lueesfz.mongodb.net:27017/?ssl=true&replicaSet=atlas-6to6iy-shard-0&authSource=admin&appName=Cluster0
-JWT_SECRET=4a498d90a0f923ae4b3f1f65571ff25985d17e2f3286e8e90383e449f68a40a8
+JWT_SECRET=e393815729680c491a3ce5bb3c5d3968b6aaa69eb64e2ca6452a1c38062b69b2
 JWT_EXPIRES_IN=7d
+CSRF_SECRET=<a different long random secret>
 ```
 
 ## What was added on top of Task 3
@@ -62,7 +63,8 @@ JWT_EXPIRES_IN=7d
   `req.cookies.token`. A `POST /api/auth/logout` route clears the cookie. The browser now sends
   the session automatically on every request — which is exactly the precondition for `CSRF`.
 - `app.js` now mounts `cookie-parser`, `express.urlencoded` (so plain HTML-form bodies are
-  parsed), and CORS with `credentials: true` locked to the client origin.
+  parsed), and CORS with `credentials: true` locked to the client origin. It also issues
+  session-bound CSRF tokens and rejects state-changing requests without a matching token.
 - Added a new model called **`Setting`** with the attributes: `user`, `recoveryEmail`,
   `notifications`.
 - Added the **Setting controller** with the following routes:
@@ -73,8 +75,8 @@ JWT_EXPIRES_IN=7d
 ### Client
 
 - `api.js` now sends requests with `withCredentials: true` (so the auth cookie rides along) and no
-  longer stores a token in `localStorage`. `AuthContext` restores the session via
-  `GET /api/auth/me`.
+  longer stores a token in `localStorage`. It fetches a CSRF token when needed and sends it in
+  the `x-csrf-token` header on writes. `AuthContext` restores the session via `GET /api/auth/me`.
 - Added the **`Settings.jsx`** page (and a **Settings** nav link) for viewing and updating the
   recovery email.
 
@@ -93,7 +95,8 @@ Please note that the demo works over `http://localhost` because the attacker's p
 `SameSite` attribute keys off the registrable domain, not the port, so the `SameSite=Lax` auth
 cookie is still sent. This is a deliberate lesson: `SameSite` is a useful layer but **not** a
 complete defense, which is why a real anti-`CSRF` token is required (details in the `Flow.md`
-file). After reading the file, read the next section.
+file). The fixed application rejects the attacker's forged write with `403` and leaves the
+recovery email unchanged. After reading the file, read the next section.
 
 ## Task
 
