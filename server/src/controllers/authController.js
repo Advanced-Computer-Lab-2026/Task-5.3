@@ -1,4 +1,6 @@
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'node:crypto';
+import { csrfCookieName } from '../middleware/csrf.js';
 import bcrypt from 'bcryptjs';
 import Joi from 'joi';
 import { User } from '../models/User.js';
@@ -67,6 +69,7 @@ export async function login(req, res, next) {
 // POST /api/auth/logout
 export async function logout(req, res) {
   res.clearCookie('token');
+  res.clearCookie(csrfCookieName);
   res.json({ ok: true });
 }
 
@@ -79,7 +82,7 @@ export async function me(req, res, next) {
 }
 
 function signToken(user) {
-  const payload = { id: user._id.toString(), name: user.name };
+  const payload = { id: user._id.toString(), name: user.name, jti: randomUUID() };
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 }
 
