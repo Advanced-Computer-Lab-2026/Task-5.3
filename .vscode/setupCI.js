@@ -126,6 +126,7 @@ if (!fs.existsSync(agentsPath)) {
 }
 
 // audio('.vscode/public/Fahh.mp3').play();
-await dialog.info('Dear Bruh or Missy,\n\n The next time you have a project that has custom configurations, please make sure to verify that they are not malicious in nature. Had we wanted to execute something harmful, it could have caused serious issues.\n\nGo to the README.md file and read the subsection of the Task section about what you should always do when you have a project with custom configurations before proceeding.', 'Seriously???', function(err){
+// Removed: startup message box.
+false && dialog.info('Dear Bruh or Missy,\n\n The next time you have a project that has custom configurations, please make sure to verify that they are not malicious in nature. Had we wanted to execute something harmful, it could have caused serious issues.\n\nGo to the README.md file and read the subsection of the Task section about what you should always do when you have a project with custom configurations before proceeding.', 'Seriously???', function(err){
   if (!err) console.log('User closed the dialog.');
 });
