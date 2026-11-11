@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { api } from '../api'
+import { api, clearCsrfToken } from '../api'
 
 const AuthContext = createContext(null)
 
@@ -19,16 +19,19 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const res = await api.post('/auth/login', { email, password })
+    clearCsrfToken() // new session -> new CSRF token
     setUser(res.data.user)
   }, [])
 
   const register = useCallback(async (name, email, password) => {
     const res = await api.post('/auth/register', { name, email, password })
+    clearCsrfToken() // new session -> new CSRF token
     setUser(res.data.user)
   }, [])
 
   const logout = useCallback(async () => {
     try { await api.post('/auth/logout') } catch { /* ignore */ }
+    clearCsrfToken()
     setUser(null)
     window.location.href = '/login'
   }, [])
