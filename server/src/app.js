@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { requireAuth } from './middleware/auth.js';
+import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -22,6 +24,18 @@ app.use(cookieParser());
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+// Authentication must populate and verify the session before CSRF checks.
+app.use(['/api/items', '/api/users', '/api/settings'], (req, res, next) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  requireAuth(req, res, (err) => {
+    if (err) return next(err);
+    return doubleCsrfProtection(req, res, next);
+  });
+});
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
@@ -33,6 +47,9 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({ message: 'Invalid or missing CSRF token' });
+  }
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Server Error' });
 });
