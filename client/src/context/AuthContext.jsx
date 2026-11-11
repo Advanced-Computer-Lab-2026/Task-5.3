@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { api } from '../api'
+import { api, setCsrfToken, clearCsrfToken } from '../api'
 
 const AuthContext = createContext(null)
 
@@ -10,28 +10,51 @@ export function AuthProvider({ children }) {
   // The session now lives in an httpOnly cookie the browser sends automatically,
   // so there is no token in localStorage to read. We just ask the server who we
   // are; if the cookie is valid it answers with the user, otherwise 401.
-  useEffect(() => {
-    api.get('/auth/me')
-      .then(res => setUser(res.data.user || null))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false))
-  }, [])
+  async function loadCsrfToken() {
+  const res = await api.get('/auth/csrf-token')
+  setCsrfToken(res.data.csrfToken)
+}
+useEffect(() => {
+  async function initializeAuth() {
+    try {
+      const res = await api.get('/auth/me')
+      setUser(res.data.user || null)
 
-  const login = useCallback(async (email, password) => {
-    const res = await api.post('/auth/login', { email, password })
-    setUser(res.data.user)
-  }, [])
+      if (res.data.user) {
+        await loadCsrfToken()
+      }
+    } catch {
+      setUser(null)
+      clearCsrfToken()
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const register = useCallback(async (name, email, password) => {
-    const res = await api.post('/auth/register', { name, email, password })
-    setUser(res.data.user)
-  }, [])
+  initializeAuth()
+}, [])
 
+const login = useCallback(async (email, password) => {
+  const res = await api.post('/auth/login', { email, password })
+  setUser(res.data.user)
+  await loadCsrfToken()
+}, [])
+ const register = useCallback(async (name, email, password) => {
+  const res = await api.post('/auth/register', { name, email, password })
+  setUser(res.data.user)
+  await loadCsrfToken()
+}, [])
   const logout = useCallback(async () => {
-    try { await api.post('/auth/logout') } catch { /* ignore */ }
+  try {
+    await api.post('/auth/logout')
+  } catch (err) {
+    console.error('Logout error:', err)
+  } finally {
+    clearCsrfToken()
     setUser(null)
     window.location.href = '/login'
-  }, [])
+  }
+}, [])
 
 
   return (
