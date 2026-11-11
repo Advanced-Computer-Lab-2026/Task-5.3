@@ -33,7 +33,19 @@ async function registerUser() {
   return cookiePairs(res.headers['set-cookie']);
 }
 
-describe('Account settings — recovery email', () => {
+describe('Account settings — recovery email (Server)', () => {
+  test('registration sets an auth cookie', async () => {
+    const cookies = await registerUser();
+    expect(cookies.some((c) => c.startsWith('token='))).toBe(true);
+  });
+
+  test('GET /api/csrf-token returns a valid csrf token', async () => {
+    const authCookies = await registerUser();
+    const tokenRes = await request(app).get('/api/csrf-token').set('Cookie', authCookies.join('; '));
+    expect(tokenRes.status).toBe(200);
+    expect(tokenRes.body.csrfToken).toBeDefined();
+  });
+
   test('a logged-in user can update their own recovery email (the happy path)', async () => {
     const authCookies = await registerUser();
 
@@ -57,7 +69,7 @@ describe('Account settings — recovery email', () => {
     expect(check.body.settings.recoveryEmail).toBe('legit@user.com');
   });
 
-  test('a forged cross-site request with no CSRF token is rejected', async () => {
+  test('a forged cross-site request with no CSRF token is rejected with 403', async () => {
     const authCookies = await registerUser();
 
     const forged = await request(app)
@@ -67,6 +79,16 @@ describe('Account settings — recovery email', () => {
       .send({ recoveryEmail: 'attacker@evil.com' });
 
     expect(forged.status).toBe(403);
+  });
+
+  test('the victim recovery email remains unchanged after a forged request', async () => {
+    const authCookies = await registerUser();
+
+    await request(app)
+      .post('/api/settings/recovery-email')
+      .set('Cookie', authCookies.join('; '))
+      .set('Origin', 'http://attacker.evil')
+      .send({ recoveryEmail: 'attacker@evil.com' });
 
     const check = await request(app).get('/api/settings').set('Cookie', authCookies.join('; '));
     expect(check.status).toBe(200);
