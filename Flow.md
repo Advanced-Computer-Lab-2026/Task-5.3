@@ -1,8 +1,8 @@
 # Flow — Simulating the CSRF Attack
 
-This project ships a **deliberately vulnerable** feature: the **account recovery email**
-(`/settings`). Changing it is a sensitive, state-changing action — whoever controls your
-recovery email can request password-reset links and take over your account.
+This project includes a recovery-email feature and a local attacker page for demonstrating
+Cross-Site Request Forgery (CSRF). The API now rejects the attack; use these steps to verify
+that the forged update returns `403` and does not change the saved recovery email.
 
 The app authenticates every request with a **JWT stored in an httpOnly cookie**. Because the
 browser attaches that cookie **automatically** to *every* request to the API — including
@@ -10,7 +10,8 @@ requests triggered by a completely different website — an attacker's page can 
 state-changing request **in the victim's name** without ever seeing their password or token.
 That is a **Cross-Site Request Forgery (CSRF)** bug.
 
-Follow the steps to reproduce it, then read *Why it works*, then run the tests.
+Follow the steps to simulate the forged request, then read why the original attack worked and
+how the fix blocks it.
 
 ---
 
@@ -22,13 +23,14 @@ From the **project root** (`Task-5.3/`):
 npm install          # installs server + client (npm workspaces) + test tooling
 ```
 
-Create `server/.env` (if missing):
+Create `server/.env` if needed, or add the CSRF secret to the existing file:
 
 ```
 PORT=4000
 MONGO_URI=<your MongoDB connection string>
 JWT_SECRET=<any long random string>
 JWT_EXPIRES_IN=7d
+CSRF_SECRET=<a different long random string>
 ```
 
 Start the app:
@@ -81,42 +83,41 @@ It looks like a harmless "You won a prize!" page. But on load it **auto-submits 
 form** that POSTs to `http://localhost:4000/api/settings/recovery-email` with
 `recoveryEmail=attacker@evil.com`, targeting a hidden iframe so you see nothing.
 
-Now go back to the app tab and **refresh the Settings page** (or `GET
-http://localhost:4000/api/settings` in a logged-in tab). The recovery email is now
-**`attacker@evil.com`** — changed without your consent. From here the attacker triggers a
-password reset and receives the link. **Account takeover.**
+Now check the request in DevTools → **Network**. The forged `POST` to
+`http://localhost:4000/api/settings/recovery-email` should return **`403 Forbidden`**. Go back
+to the app tab and refresh the Settings page (or `GET http://localhost:4000/api/settings` in a
+logged-in tab): the recovery email should remain the value you set. The attacker's form cannot
+provide the CSRF header required by the API.
 
-> Want to watch it happen? Open DevTools → **Network** on the attacker page before it loads,
-> and you will see the cross-site `POST` to `/api/settings/recovery-email` return `200`, with
-> your `token` cookie attached under **Request Headers → Cookie**.
+> The browser may still attach the auth cookie (and same-site CSRF cookie) to the form request.
+> That is expected: the server rejects it because the attacker cannot supply a valid
+> `x-csrf-token` header.
 
 ---
 
-## 4. Why it works (the vulnerable code path)
+## 4. Why the old attack worked, and why it now fails
 
-1. **Auth is a cookie the browser sends for you** — `server/src/middleware/auth.js` reads the
-   JWT from `req.cookies.token`. The victim's browser attaches it to the attacker's forged
-   request automatically; the server cannot tell the difference between that and a real click.
-2. **The write trusts the cookie alone** — `server/src/controllers/settingController.js`
-   (`updateRecoveryEmail`) performs the update with **no proof the request came from our own
-   app**: no anti-CSRF token, no check that a real user action triggered it.
-3. **The body is a plain form** — `server/src/app.js` parses `urlencoded` bodies, so a bare
-   HTML `<form>` POST (which needs no JavaScript and triggers no CORS preflight) is enough.
-4. **CORS does not save you.** CORS only blocks the attacker from *reading* the response; the
-   browser still *sends* the request and the server still *acts on it*. CSRF is about the
-   write succeeding, not about reading the reply.
+1. **Cookies authenticate automatically.** `server/src/middleware/auth.js` reads the JWT from
+   `req.cookies.token`; the browser can attach it to a cross-origin request without the attacker
+   ever reading it.
+2. **CORS alone is not CSRF protection.** CORS controls whether an origin may read a response; a
+   simple HTML form can still send a request, and the server could still act on it.
+   `SameSite=Lax` also does not stop this local demonstration: `localhost:1337` and
+   `localhost:4000` are different origins but the same site, because ports do not define a site.
+3. **Writes now require a session-bound token.** The app's `csrf-csrf` middleware validates every
+   non-safe request, except `POST /api/auth/login` and `POST /api/auth/register`, which are
+   pre-authentication routes. Safe `GET`, `HEAD`, and `OPTIONS` requests remain exempt. The
+   authenticated `GET /api/csrf-token` issues a signed double-submit token whose HMAC is tied to
+   the JWT session and the server-only `CSRF_SECRET`.
+4. **The legitimate client echoes the token.** `client/src/api.js` fetches the token before each
+   write and sends it in the `x-csrf-token` header. The CSRF cookie is HttpOnly, and the
+   attacker-origin page cannot read the token response due to the CORS origin restriction.
+   A plain form cannot add the required header, so the middleware returns `403` before any
+   controller can update data.
 
-> ### Why `SameSite` doesn't save you here
-> The auth cookie is `SameSite=Lax`. You might expect that to block a cross-site POST — and
-> across true different sites (`evil.com` → `yourbank.com`) it largely would. But the attacker
-> page (`localhost:1337`) and the API (`localhost:4000`) are the **same site**: the port is not
-> part of a site's identity, only the registrable domain is. So the cookie is sent. This is a
-> deliberate lesson: **`SameSite` is a useful layer but not a substitute for a real anti-CSRF
-> token.** The fix the solution uses works regardless of site/port.
-
-The fix: require a secret, per-session **CSRF token** on every state-changing request — a value
-the attacker's site cannot read or guess. The solution project does this with the `csrf-csrf`
-package.
+`SameSite` remains useful defense-in-depth, but it does not replace a CSRF token. CORS and token
+validation work together: CORS prevents the attacker origin from retrieving the token, and the
+server verifies the token on writes.
 
 ---
 
@@ -129,17 +130,20 @@ npm install     # first time only
 npm test
 ```
 
-What to expect **in this vulnerable project**:
+What to expect after the fix:
 
-- The tests describe the **secure** behavior the feature *should* have: a forged request with no
-  CSRF token is rejected (server), and the client attaches a CSRF token to mutating requests.
-- So here they are **expected to FAIL** (the suite is red). That red result is the starting
-  point — your job is to make them green by adding CSRF protection. The solution project shows
-  them all passing.
+- A logged-in update with a valid token succeeds, while a forged update without the token returns
+  `403` and leaves the recovery email unchanged.
+- The client attaches the token to writes; safe reads and pre-authentication registration/login
+  remain usable.
+- The tests should pass.
 
 Notes:
 
-- The server tests spin up an **in-memory MongoDB** via `mongodb-memory-server`. The first run
-  downloads a small `mongod` binary, so you need **internet access the first time** (cached after).
+- The server tests use in-memory user/settings model stubs and do not require MongoDB or download
+  a database binary.
 - You need **Node.js 18+ (20 recommended)**.
 - The same `npm test` works on **Windows, macOS, and Linux**.
+- Keep `CSRF_SECRET` private and stable across server restarts; use a different random value from
+  `JWT_SECRET`. In production, serve the app over HTTPS so the CSRF cookie's `Secure` attribute
+  is enabled.

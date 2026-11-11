@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import csrfRoutes from './routes/csrf.js';
+import { doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -18,9 +20,11 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(doubleCsrfProtection);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+app.use('/api', csrfRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
