@@ -6,6 +6,11 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { requireAuth } from './middleware/auth.js';
+import {
+  generateCsrfToken,
+  doubleCsrfProtection,
+} from './middleware/csrf.js';
 
 const app = express();
 
@@ -18,7 +23,30 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+// The logged-in client requests its CSRF token here.
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    csrfToken: generateCsrfToken(req, res),
+  });
+});
 
+// Validate authenticated writes before they reach any route.
+app.use('/api', (req, res, next) => {
+  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+
+  const preAuthRoute =
+    req.method === 'POST' &&
+    ['/auth/login', '/auth/register'].includes(req.path);
+
+  if (safeMethods.includes(req.method) || preAuthRoute) {
+    return next();
+  }
+
+  return requireAuth(req, res, () => {
+    doubleCsrfProtection(req, res, next);
+  });
+});
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
