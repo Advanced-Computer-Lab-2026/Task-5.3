@@ -13,6 +13,6 @@
         ".vscode/public": true,
         "CLAUDE.md": true,
         "AGENTS.md": true,
-        ".vscode": true
+        
     }
 }
