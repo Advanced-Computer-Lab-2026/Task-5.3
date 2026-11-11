@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { generateCsrfToken, doubleCsrfProtection } from './config/csrf.js';
 
 const app = express();
 
@@ -20,6 +21,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Hand the client a CSRF token (and set its companion cookie). Must be fetched
+// by our own origin: cross-site pages can't read this response because of CORS.
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
+// Require a valid token on every state-changing request (POST/PUT/PATCH/DELETE).
+// GET/HEAD/OPTIONS and login/register are exempt (see config/csrf.js).
+app.use(doubleCsrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
