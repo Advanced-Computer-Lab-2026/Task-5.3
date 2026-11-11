@@ -1,6 +1,11 @@
 {
   "name": "task-3-lostfound",
   "private": true,
+  "config": {
+    "mongodbMemoryServer": {
+      "version": "7.0.14"
+    }
+  },
   "workspaces": [
     "server",
     "client"
@@ -24,5 +29,8 @@
   "allowScripts": {
     "mongodb-memory-server@11.3.0": true,
     "@parcel/watcher@2.6.0": true
+  },
+  "dependencies": {
+    "csrf-csrf": "^4.1.0"
   }
 }
