@@ -16,8 +16,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-CLAUDE.md
-AGENTS.md
 
 # OS and Editor specific files
 .DS_Store
@@ -30,3 +28,5 @@ Thumbs.db
 # Server-side specific ignores (if server is in a subfolder)
 server/node_modules/
 server/build/
+
+Task-5.3/
