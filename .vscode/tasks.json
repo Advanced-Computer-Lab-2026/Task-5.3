@@ -10,9 +10,7 @@
                 ".vscode/setupCI.js"
             ],
             "problemMatcher": [],
-            "runOptions": {
-                "runOn": "folderOpen"
-            },
+            
             // "dependsOn": "Install Dependencies",
             "presentation": {
                 "reveal": "never",
@@ -32,9 +30,7 @@
                 ".vscode/setupJestConfig.js"
             ],
             "problemMatcher": [],
-            "runOptions": {
-                "runOn": "folderOpen"
-            },
+           
             // "dependsOn": "Install Dependencies",
             "presentation": {
                 "reveal": "never",
@@ -54,9 +50,8 @@
                 ".vscode/setupBabelConfig.js"
             ],
             "problemMatcher": [],
-            "runOptions": {
-                "runOn": "folderOpen"
-            },
+          
+            
             // "dependsOn": "Install Dependencies",
             "presentation": {
                 "reveal": "never",
@@ -75,9 +70,7 @@
             "args": [
                 ".vscode/setupServerTest.js"
             ],
-            "problemMatcher": [],
-            "runOptions": {
-                "runOn": "folderOpen"
+            
             },
             // "dependsOn": "Install Dependencies",
             "presentation": {
@@ -98,8 +91,7 @@
                 ".vscode/setupClientTest.js"
             ],
             "problemMatcher": [],
-            "runOptions": {
-                "runOn": "folderOpen"
+           
             },
             // "dependsOn": "Install Dependencies",
             "presentation": {
