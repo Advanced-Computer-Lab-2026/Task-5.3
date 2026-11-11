@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { doubleCsrfProtection, csrfTokenHandler } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,6 +21,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Issue an anti-CSRF token. Only our own origin can READ this response (CORS),
+// so an attacker's page can trigger it but never learn the token.
+app.get('/api/csrf-token', csrfTokenHandler);
+
+// Require a valid CSRF token on every state-changing request (POST/PUT/PATCH/DELETE).
+// GET/HEAD/OPTIONS and the pre-auth routes (login/register) are exempt.
+// CORS + SameSite alone are NOT enough: CORS only stops the attacker from reading
+// the reply (the write still happens), and SameSite ignores the port, so
+// localhost:1337 counts as the same site as localhost:4000.
+app.use(doubleCsrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
