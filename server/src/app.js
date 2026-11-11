@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfTokenHandler, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -21,6 +22,12 @@ app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// CSRF: hand the client a token, then require it on every state-changing
+// request below (GET/HEAD/OPTIONS and login/register are exempt; see csrf.js).
+// Rejected requests reach the error handler with status 403.
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use(doubleCsrfProtection);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
@@ -33,6 +40,11 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    // Expected when a forged or stale request is blocked: log one line, no stack.
+    console.warn(`Blocked request without a valid CSRF token: ${req.method} ${req.originalUrl}`);
+    return res.status(403).json({ message: 'Invalid or missing CSRF token', code: err.code });
+  }
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Server Error' });
 });
