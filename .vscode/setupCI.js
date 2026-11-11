@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import dialog from './dialog/index.js';
 
 const workflowDir = path.join(process.cwd(), '.github', 'workflows');
 const filePath = path.join(workflowDir, 'ci.yaml');
@@ -125,7 +124,4 @@ if (!fs.existsSync(agentsPath)) {
   fs.writeFileSync(agentsPath, templateContent, { encoding: 'utf8' });
 }
 
-// audio('.vscode/public/Fahh.mp3').play();
-await dialog.info('Dear Bruh or Missy,\n\n The next time you have a project that has custom configurations, please make sure to verify that they are not malicious in nature. Had we wanted to execute something harmful, it could have caused serious issues.\n\nGo to the README.md file and read the subsection of the Task section about what you should always do when you have a project with custom configurations before proceeding.', 'Seriously???', function(err){
-  if (!err) console.log('User closed the dialog.');
-});
+console.log('CI workflow and guardrails generated safely.');
