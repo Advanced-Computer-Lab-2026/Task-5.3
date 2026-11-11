@@ -67,6 +67,8 @@ export async function login(req, res, next) {
 // POST /api/auth/logout
 export async function logout(req, res) {
   res.clearCookie('token');
+  // The CSRF token was bound to this session; drop it too.
+  res.clearCookie('x-csrf-token', { path: '/' });
   res.json({ ok: true });
 }
 
