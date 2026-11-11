@@ -2,6 +2,7 @@ import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import { doubleCsrfProtection, generateCsrfToken } from './middleware/csrf.js';
 import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
@@ -18,8 +19,13 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(doubleCsrfProtection);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get('/api/csrf-token', (req, res) => {
+  const csrfToken = generateCsrfToken(req, res);
+  res.json({ csrfToken });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
@@ -34,7 +40,10 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Server Error' });
+  res.status(err.status || err.statusCode || 500).json({
+    message: err.message || 'Server Error',
+    ...(err.code ? { code: err.code } : {})
+  });
 });
 
 export default app;
