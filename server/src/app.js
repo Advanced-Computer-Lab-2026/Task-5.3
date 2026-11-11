@@ -27,8 +27,7 @@ app.use('/api/users', userRoutes);
 app.get("/api/csrf-token", (req, res) => {
   res.json({ csrfToken: generateCsrfToken(req, res) });
 });
-app.use("/api/settings", doubleCsrfProtection, settingsRoutes);
-
+app.use("/api/settings", doubleCsrfProtection, settingRoutes);
 // Not found
 app.use((req, res) => {
   res.status(404).json({ message: 'Not Found' });
