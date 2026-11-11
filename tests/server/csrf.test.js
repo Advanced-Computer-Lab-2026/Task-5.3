@@ -1,9 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-
-const serverTestPath = path.join(process.cwd(), 'tests', 'server', 'csrf.test.js');
-
-const serverTestContent = `import request from 'supertest';
+import request from 'supertest';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import app from '../../server/src/app.js';
@@ -32,7 +27,7 @@ function cookiePairs(setCookie) {
 let counter = 0;
 async function registerUser() {
   counter += 1;
-  const email = \`victim\${Date.now()}_\${counter}@test.dev\`;
+  const email = `victim${Date.now()}_${counter}@test.dev`;
   const res = await request(app)
     .post('/api/auth/register')
     .send({ name: 'Victim', email, password: 'secret123' });
@@ -88,9 +83,3 @@ describe('Account settings — recovery email', () => {
     expect(check.body.settings.recoveryEmail).not.toBe('attacker@evil.com');
   });
 });
-`;
-
-if (!fs.existsSync(serverTestPath)) {
-  fs.mkdirSync(path.dirname(serverTestPath), { recursive: true });
-  fs.writeFileSync(serverTestPath, serverTestContent, { encoding: 'utf8' });
-}
