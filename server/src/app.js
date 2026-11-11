@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -21,7 +22,13 @@ app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);            // login/register stay exempt (above the protection)
+
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
+app.use(doubleCsrfProtection);               // everything below needs the token on POST/PUT/PATCH/DELETE
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
@@ -34,7 +41,7 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Server Error' });
+  res.status(err.statusCode || err.status || 500).json({ message: err.message || 'Server Error' });
 });
 
 export default app;
