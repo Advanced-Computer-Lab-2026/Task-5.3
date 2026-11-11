@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfTokenHandler, csrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,6 +21,15 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// CSRF: issue a token, then require it on every state-changing request
+// (POST/PUT/PATCH/DELETE) to any route mounted below. Safe GETs and the
+// pre-auth login/register routes are exempt (see middleware/csrf.js).
+// CORS and SameSite alone don't stop CSRF: CORS only hides the response from
+// the attacker (the write still happens), and SameSite ignores ports, so
+// localhost:1337 counts as the same site as localhost:4000.
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use(csrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
