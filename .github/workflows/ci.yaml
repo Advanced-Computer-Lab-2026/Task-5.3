@@ -1,0 +1,27 @@
+name: Campus tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Prepare test database
+        run: node --input-type=module -e "import { MongoMemoryServer } from 'mongodb-memory-server'; const db = await MongoMemoryServer.create(); await db.stop()"
+      - name: Run client and server tests
+        run: npm test -- --runInBand
