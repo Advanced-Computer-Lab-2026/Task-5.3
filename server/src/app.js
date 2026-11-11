@@ -21,6 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
 // Hands our own client a CSRF token. A cross-site page can't read this response
 // (CORS blocks it), so the attacker never learns the token.
 app.get('/api/csrf-token', (req, res) => {
@@ -43,13 +44,9 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  app.use((err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
     return res.status(403).json({ message: 'Invalid or missing CSRF token' });
   }
-  console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Server Error' });
-});
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Server Error' });
 });
