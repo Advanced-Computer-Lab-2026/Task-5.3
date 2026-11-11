@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { generateCsrfToken, doubleCsrfProtection } from './middleware/csrf.js';
+import { requireAuth } from './middleware/auth.js';
 
 const app = express();
 
@@ -18,6 +20,13 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+// Endpoint for logged-in users to fetch their CSRF token
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
+// Protect all subsequent POST, PATCH, and DELETE requests
+app.use(doubleCsrfProtection);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
