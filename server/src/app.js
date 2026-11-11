@@ -1,3 +1,4 @@
+import { generateCsrfToken } from './middleware/csrf.js';
 import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
@@ -20,6 +21,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
