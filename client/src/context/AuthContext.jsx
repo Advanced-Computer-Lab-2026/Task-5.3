@@ -10,8 +10,8 @@ export function AuthProvider({ children }) {
   // The session now lives in an httpOnly cookie the browser sends automatically,
   // so there is no token in localStorage to read. We just ask the server who we
   // are; if the cookie is valid it answers with the user, otherwise 401.
-  async function loadCsrfToken() {
-  const res = await api.get('/auth/csrf-token')
+ async function loadCsrfToken() {
+  const res = await api.get('/csrf-token')
   setCsrfToken(res.data.csrfToken)
 }
 useEffect(() => {
