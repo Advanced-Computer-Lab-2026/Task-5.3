@@ -82,13 +82,14 @@ form** that POSTs to `http://localhost:4000/api/settings/recovery-email` with
 `recoveryEmail=attacker@evil.com`, targeting a hidden iframe so you see nothing.
 
 Now go back to the app tab and **refresh the Settings page** (or `GET
-http://localhost:4000/api/settings` in a logged-in tab). The recovery email is now
-**`attacker@evil.com`** — changed without your consent. From here the attacker triggers a
-password reset and receives the link. **Account takeover.**
+http://localhost:4000/api/settings` in a logged-in tab). Before the CSRF fix, the recovery email
+changes to **`attacker@evil.com`** — changed without your consent. After the fix, the forged POST
+must return **403** and the recovery email must remain unchanged.
 
-> Want to watch it happen? Open DevTools → **Network** on the attacker page before it loads,
-> and you will see the cross-site `POST` to `/api/settings/recovery-email` return `200`, with
-> your `token` cookie attached under **Request Headers → Cookie**.
+> To observe the vulnerable behavior, open DevTools → **Network** on the attacker page before it
+> loads; before the fix, the forged POST returns `200` with the auth `token` cookie attached.
+> After the fix, it returns `403` because the attacker cannot provide the required `x-csrf-token`
+> header.
 
 ---
 
@@ -115,8 +116,9 @@ password reset and receives the link. **Account takeover.**
 > token.** The fix the solution uses works regardless of site/port.
 
 The fix: require a secret, per-session **CSRF token** on every state-changing request — a value
-the attacker's site cannot read or guess. The solution project does this with the `csrf-csrf`
-package.
+the attacker's site cannot read or guess. The server issues one at `GET /api/csrf-token` for an
+authenticated session; the client echoes it in the `x-csrf-token` header. The solution uses the
+`csrf-csrf` package.
 
 ---
 

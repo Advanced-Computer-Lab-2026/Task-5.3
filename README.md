@@ -47,6 +47,7 @@ PORT=4000
 MONGO_URI=mongodb://tasks:pass1234@ac-j3acrgb-shard-00-00.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-01.lueesfz.mongodb.net:27017,ac-j3acrgb-shard-00-02.lueesfz.mongodb.net:27017/?ssl=true&replicaSet=atlas-6to6iy-shard-0&authSource=admin&appName=Cluster0
 JWT_SECRET=4a498d90a0f923ae4b3f1f65571ff25985d17e2f3286e8e90383e449f68a40a8
 JWT_EXPIRES_IN=7d
+CSRF_SECRET=<a different long random string>
 ```
 
 ## What was added on top of Task 3
@@ -113,6 +114,10 @@ the recovery email unchanged). Think about: issuing a secret, per-session **CSRF
 attacker's site cannot read or guess; requiring that token on every state-changing request; leaving
 "safe" `GET` requests and the pre-auth routes (login/register, which run before a session exists)
 exempt; and echoing the token from the client on each write.
+
+The server issues a token at `GET /api/csrf-token` for an authenticated session. The client
+automatically sends it in the `x-csrf-token` header on state-changing requests. Set a separate,
+random `CSRF_SECRET` in `server/.env`; the server falls back to `JWT_SECRET` if it is not set.
 
 Your solution should utilize the **`csrf-csrf`** package (the double-submit-cookie pattern; the old
 `csurf` is deprecated). You are expected to understand **why** `CORS` and `SameSite` cookies do not
