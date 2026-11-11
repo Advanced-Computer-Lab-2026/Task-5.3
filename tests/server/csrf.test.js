@@ -9,9 +9,15 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '1h';
   process.env.CSRF_SECRET = 'test-csrf-secret';
-  mongo = await MongoMemoryServer.create();
+
+  mongo = await MongoMemoryServer.create({
+    binary: {
+      version: '7.0.14',
+    },
+  });
+
   await mongoose.connect(mongo.getUri());
-}, 60000);
+}, 600000);
 
 afterAll(async () => {
   await mongoose.disconnect();
