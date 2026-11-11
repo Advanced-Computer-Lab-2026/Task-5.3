@@ -29,6 +29,7 @@ PORT=4000
 MONGO_URI=<your MongoDB connection string>
 JWT_SECRET=<any long random string>
 JWT_EXPIRES_IN=7d
+CSRF_SECRET=<a different long random string>
 ```
 
 Start the app:
@@ -82,24 +83,24 @@ form** that POSTs to `http://localhost:4000/api/settings/recovery-email` with
 `recoveryEmail=attacker@evil.com`, targeting a hidden iframe so you see nothing.
 
 Now go back to the app tab and **refresh the Settings page** (or `GET
-http://localhost:4000/api/settings` in a logged-in tab). The recovery email is now
-**`attacker@evil.com`** — changed without your consent. From here the attacker triggers a
-password reset and receives the link. **Account takeover.**
+http://localhost:4000/api/settings` in a logged-in tab). With the CSRF fix applied, the forged
+request is rejected with **`403 Forbidden`**, and your recovery email remains unchanged.
 
 > Want to watch it happen? Open DevTools → **Network** on the attacker page before it loads,
-> and you will see the cross-site `POST` to `/api/settings/recovery-email` return `200`, with
-> your `token` cookie attached under **Request Headers → Cookie**.
+> and you will see the cross-site `POST` to `/api/settings/recovery-email` return `403`, with
+> your `token` cookie attached under **Request Headers → Cookie**. The attacker cannot read
+> the CSRF token or set the required `x-csrf-token` header.
 
 ---
 
 ## 4. Why it works (the vulnerable code path)
 
 1. **Auth is a cookie the browser sends for you** — `server/src/middleware/auth.js` reads the
-   JWT from `req.cookies.token`. The victim's browser attaches it to the attacker's forged
-   request automatically; the server cannot tell the difference between that and a real click.
-2. **The write trusts the cookie alone** — `server/src/controllers/settingController.js`
-   (`updateRecoveryEmail`) performs the update with **no proof the request came from our own
-   app**: no anti-CSRF token, no check that a real user action triggered it.
+   JWT from `req.cookies.token`. The victim's browser still attaches it to the attacker's forged
+   request automatically.
+2. **The write now also requires a CSRF token** — the `csrf-csrf` middleware checks a signed
+   token bound to the session JWT. The client obtains it from `GET /api/csrf-token` and sends it
+   in the `x-csrf-token` header on every state-changing request.
 3. **The body is a plain form** — `server/src/app.js` parses `urlencoded` bodies, so a bare
    HTML `<form>` POST (which needs no JavaScript and triggers no CORS preflight) is enough.
 4. **CORS does not save you.** CORS only blocks the attacker from *reading* the response; the
@@ -114,9 +115,9 @@ password reset and receives the link. **Account takeover.**
 > deliberate lesson: **`SameSite` is a useful layer but not a substitute for a real anti-CSRF
 > token.** The fix the solution uses works regardless of site/port.
 
-The fix: require a secret, per-session **CSRF token** on every state-changing request — a value
-the attacker's site cannot read or guess. The solution project does this with the `csrf-csrf`
-package.
+The middleware leaves safe `GET`, `HEAD`, and `OPTIONS` requests and pre-authentication
+`POST /api/auth/login` and `POST /api/auth/register` exempt. Other state-changing requests made
+with an authenticated session require a valid token.
 
 ---
 
@@ -129,13 +130,12 @@ npm install     # first time only
 npm test
 ```
 
-What to expect **in this vulnerable project**:
+What to expect after applying the fix:
 
-- The tests describe the **secure** behavior the feature *should* have: a forged request with no
-  CSRF token is rejected (server), and the client attaches a CSRF token to mutating requests.
-- So here they are **expected to FAIL** (the suite is red). That red result is the starting
-  point — your job is to make them green by adding CSRF protection. The solution project shows
-  them all passing.
+- The tests verify that a legitimate update succeeds when accompanied by a CSRF token, a forged
+  request without one returns `403` without changing the recovery email, and the client attaches
+  the token to writes.
+- All CSRF tests should pass.
 
 Notes:
 
