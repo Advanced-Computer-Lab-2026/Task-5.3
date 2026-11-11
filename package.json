@@ -24,5 +24,9 @@
   "allowScripts": {
     "mongodb-memory-server@11.3.0": true,
     "@parcel/watcher@2.6.0": true
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "csrf-csrf": "^4.1.0"
   }
 }
