@@ -1,0 +1,383 @@
+diff --git a/babel.config.cjs b/babel.config.cjs
+new file mode 100644
+index 0000000..81c588e
+--- /dev/null
++++ b/babel.config.cjs
+@@ -0,0 +1,6 @@
++// Lets jest load the project's ESM source (server + client) through babel-jest.
++module.exports = {
++  presets: [
++    ['@babel/preset-env', { targets: { node: 'current' } }]
++  ]
++};
+diff --git a/client/src/api.js b/client/src/api.js
+index 6de0a0a..2803c77 100644
+--- a/client/src/api.js
++++ b/client/src/api.js
+@@ -7,3 +7,57 @@ export const api = axios.create({
+   baseURL: 'http://localhost:4000/api',
+   withCredentials: true
+ })
++
++// ---- CSRF ----
++// The server only accepts a state-changing request if it carries the CSRF token
++// in the `x-csrf-token` header. We fetch the token from GET /csrf-token (only
++// our own origin can read that response, thanks to CORS) and echo it on every write.
++const SAFE_METHODS = ['get', 'head', 'options']
++// Login/register run before a session exists, so they don't need a token.
++const EXEMPT_URLS = ['/auth/login', '/auth/register']
++
++let csrfToken = null
++
++async function getCsrfToken() {
++  if (!csrfToken) {
++    const { data } = await api.get('/csrf-token')
++    csrfToken = data.csrfToken
++  }
++  return csrfToken
++}
++
++// Call after login/register/logout: the token is bound to the session, so a new
++// session needs a new token.
++export function resetCsrfToken() {
++  csrfToken = null
++}
++
++function setHeader(config, name, value) {
++  if (config.headers && typeof config.headers.set === 'function') {
++    config.headers.set(name, value)
++  } else {
++    config.headers = { ...(config.headers || {}), [name]: value }
++  }
++}
++
++api.interceptors.request.use(async (config) => {
++  const method = (config.method || 'get').toLowerCase()
++  const url = config.url || ''
++  if (!SAFE_METHODS.includes(method) && !EXEMPT_URLS.some(u => url.includes(u))) {
++    setHeader(config, 'x-csrf-token', await getCsrfToken())
++  }
++  return config
++})
++
++// If the token went stale (for example the session changed), fetch a fresh one
++// and retry once.
++api.interceptors.response.use(undefined, async (error) => {
++  const config = error.config
++  if (error.response?.status === 403 && config && !config._csrfRetried) {
++    config._csrfRetried = true
++    resetCsrfToken()
++    setHeader(config, 'x-csrf-token', await getCsrfToken())
++    return api(config)
++  }
++  return Promise.reject(error)
++})
+diff --git a/client/src/context/AuthContext.jsx b/client/src/context/AuthContext.jsx
+index abe4e00..49d9796 100644
+--- a/client/src/context/AuthContext.jsx
++++ b/client/src/context/AuthContext.jsx
+@@ -1,5 +1,5 @@
+ import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+-import { api } from '../api'
++import { api, resetCsrfToken } from '../api'
+ 
+ const AuthContext = createContext(null)
+ 
+@@ -19,16 +19,19 @@ export function AuthProvider({ children }) {
+ 
+   const login = useCallback(async (email, password) => {
+     const res = await api.post('/auth/login', { email, password })
++    resetCsrfToken() // new session, so get a new CSRF token on the next write
+     setUser(res.data.user)
+   }, [])
+ 
+   const register = useCallback(async (name, email, password) => {
+     const res = await api.post('/auth/register', { name, email, password })
++    resetCsrfToken()
+     setUser(res.data.user)
+   }, [])
+ 
+   const logout = useCallback(async () => {
+     try { await api.post('/auth/logout') } catch { /* ignore */ }
++    resetCsrfToken()
+     setUser(null)
+     window.location.href = '/login'
+   }, [])
+diff --git a/jest.config.cjs b/jest.config.cjs
+new file mode 100644
+index 0000000..10ee974
+--- /dev/null
++++ b/jest.config.cjs
+@@ -0,0 +1,20 @@
++// One jest run with two environments:
++//   - "server" tests run in node (they boot the Express app + in-memory Mongo)
++//   - "client" tests run in jsdom (they exercise the browser-side api client)
++// `npm test` runs both.
++module.exports = {
++  projects: [
++    {
++      displayName: 'server',
++      testEnvironment: 'node',
++      testMatch: ['<rootDir>/tests/server/**/*.test.js'],
++      transform: { '^.+\\.js$': 'babel-jest' }
++    },
++    {
++      displayName: 'client',
++      testEnvironment: 'jsdom',
++      testMatch: ['<rootDir>/tests/client/**/*.test.js'],
++      transform: { '^.+\\.js$': 'babel-jest' }
++    }
++  ]
++};
+diff --git a/server/package.json b/server/package.json
+index db19c7f..0a2daf3 100644
+--- a/server/package.json
++++ b/server/package.json
+@@ -10,6 +10,7 @@
+     "bcryptjs": "^2.4.3",
+     "cookie-parser": "^1.4.7",
+     "cors": "^2.8.5",
++    "csrf-csrf": "^4.0.3",
+     "dotenv": "^16.4.5",
+     "express": "^4.19.2",
+     "joi": "^17.12.3",
+diff --git a/server/src/app.js b/server/src/app.js
+index 8920599..3694206 100644
+--- a/server/src/app.js
++++ b/server/src/app.js
+@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
+ import itemRoutes from './routes/items.js';
+ import userRoutes from './routes/users.js';
+ import settingRoutes from './routes/settings.js';
++import { csrfProtection, csrfTokenHandler } from './middleware/csrf.js';
+ 
+ const app = express();
+ 
+@@ -19,6 +20,11 @@ app.use(express.json());
+ app.use(express.urlencoded({ extended: true }));
+ app.use(cookieParser());
+ 
++// CSRF: issue the token (a GET, so the protection below lets it through), then
++// require it on every state-changing request except login/register.
++app.get('/api/csrf-token', csrfTokenHandler);
++app.use(csrfProtection);
++
+ app.get('/api/health', (req, res) => res.json({ ok: true }));
+ 
+ app.use('/api/auth', authRoutes);
+diff --git a/server/src/middleware/csrf.js b/server/src/middleware/csrf.js
+new file mode 100644
+index 0000000..d231f03
+--- /dev/null
++++ b/server/src/middleware/csrf.js
+@@ -0,0 +1,56 @@
++import { doubleCsrf } from 'csrf-csrf';
++
++// Double-submit-cookie CSRF protection (csrf-csrf v4).
++//
++// How it works:
++//  1. GET /api/csrf-token returns a random token in the JSON body AND sets a
++//     cookie holding an HMAC of that token (signed with CSRF_SECRET and bound
++//     to the user's session).
++//  2. Every state-changing request must echo the token back in the
++//     `x-csrf-token` header. The server checks header and cookie against each other.
++//
++// Why the attacker can't pass: their page can make the victim's browser SEND
++// cookies, but it cannot READ our responses (CORS only lets localhost:5175
++// read them), so it never learns the token. And a plain HTML <form> cannot
++// set a custom header at all.
++const {
++  generateCsrfToken,
++  doubleCsrfProtection,
++} = doubleCsrf({
++  // Read lazily so the secret can come from .env or be set by tests at runtime.
++  getSecret: () => process.env.CSRF_SECRET || process.env.JWT_SECRET,
++
++  // Bind each token to the current session (the auth JWT). A token issued
++  // for one login session is useless for another one.
++  getSessionIdentifier: (req) => req.cookies?.token || '',
++
++  cookieName: 'x-csrf-token',
++  cookieOptions: {
++    httpOnly: true,
++    sameSite: 'lax',
++    secure: false, // true in production (HTTPS only)
++    path: '/',
++  },
++
++  // Safe methods don't change state, so they don't need a token.
++  ignoredMethods: ['GET', 'HEAD', 'OPTIONS'],
++
++  // Only accept the token from a custom header. Never from the body or the query
++  // string: a forged <form> could put it there.
++  getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token'],
++});
++
++// Pre-auth routes run before a session exists, so there's nothing to forge yet
++// and no session to bind a token to. They stay exempt.
++const EXEMPT_PATHS = new Set(['/api/auth/login', '/api/auth/register']);
++
++export function csrfProtection(req, res, next) {
++  if (EXEMPT_PATHS.has(req.path)) return next();
++  return doubleCsrfProtection(req, res, next);
++}
++
++// GET /api/csrf-token: hand the token to our own client.
++export function csrfTokenHandler(req, res) {
++  const csrfToken = generateCsrfToken(req, res, { overwrite: true });
++  res.json({ csrfToken });
++}
+diff --git a/server/src/routes/settings.js b/server/src/routes/settings.js
+index 2e8f894..b9a4098 100644
+--- a/server/src/routes/settings.js
++++ b/server/src/routes/settings.js
+@@ -4,9 +4,9 @@ import { getSettings, updateRecoveryEmail } from '../controllers/settingControll
+ 
+ const router = Router();
+ 
+-// Reading and writing both require a logged-in user. Nothing here checks that
+-// the request actually originated from our own app — so the write below is
+-// vulnerable to CSRF. The solution project adds that check with `csrf-csrf`.
++// Reading and writing both require a logged-in user. The write is also guarded
++// by the app-wide csrfProtection middleware (see middleware/csrf.js): without a
++// valid x-csrf-token header it is rejected with 403 before it reaches here.
+ router.get('/', requireAuth, getSettings);
+ router.post('/recovery-email', requireAuth, updateRecoveryEmail);
+ 
+diff --git a/tests/client/csrf.test.js b/tests/client/csrf.test.js
+new file mode 100644
+index 0000000..233f2b7
+--- /dev/null
++++ b/tests/client/csrf.test.js
+@@ -0,0 +1,40 @@
++import { api } from '../../client/src/api.js';
++
++// Read a header value whether axios stored it as a plain object or an AxiosHeaders.
++function getHeader(headers, name) {
++  if (!headers) return undefined;
++  if (typeof headers.get === 'function') return headers.get(name);
++  return headers[name] ?? headers[name.toLowerCase()];
++}
++
++describe('client api CSRF behavior', () => {
++  let captured;
++
++  beforeEach(() => {
++    captured = [];
++    // Stub the network layer. Answer the CSRF-token request with a known token
++    // and record every other outgoing request so we can inspect its headers.
++    api.defaults.adapter = async (config) => {
++      if ((config.url || '').includes('/csrf-token')) {
++        return { data: { csrfToken: 'test-token' }, status: 200, statusText: 'OK', headers: {}, config };
++      }
++      captured.push(config);
++      return { data: {}, status: 200, statusText: 'OK', headers: {}, config };
++    };
++  });
++
++  test('requests are sent with credentials so the auth cookie rides along', () => {
++    expect(api.defaults.withCredentials).toBe(true);
++  });
++
++  // A state-changing request must carry an anti-CSRF token in a header. The
++  // attacker's forged request cannot set this header (and cannot read the token),
++  // so this is what defeats CSRF. The vulnerable client never attaches it.
++  test('a mutating request carries the x-csrf-token header', async () => {
++    await api.post('/settings/recovery-email', { recoveryEmail: 'legit@user.com' });
++
++    const sent = captured.find((c) => (c.url || '').includes('/settings/recovery-email'));
++    expect(sent).toBeDefined();
++    expect(getHeader(sent.headers, 'x-csrf-token')).toBe('test-token');
++  });
++});
+diff --git a/tests/server/csrf.test.js b/tests/server/csrf.test.js
+new file mode 100644
+index 0000000..f7485cc
+--- /dev/null
++++ b/tests/server/csrf.test.js
+@@ -0,0 +1,85 @@
++import request from 'supertest';
++import mongoose from 'mongoose';
++import { MongoMemoryServer } from 'mongodb-memory-server';
++import app from '../../server/src/app.js';
++
++let mongo;
++
++beforeAll(async () => {
++  process.env.JWT_SECRET = 'test-secret';
++  process.env.JWT_EXPIRES_IN = '1h';
++  process.env.CSRF_SECRET = 'test-csrf-secret';
++  mongo = await MongoMemoryServer.create();
++  await mongoose.connect(mongo.getUri());
++}, 60000);
++
++afterAll(async () => {
++  await mongoose.disconnect();
++  if (mongo) await mongo.stop();
++});
++
++// Turn a response's Set-Cookie header into the "name=value" pairs a browser
++// would echo back in the Cookie header on the next request.
++function cookiePairs(setCookie) {
++  return (setCookie || []).map((c) => c.split(';')[0]);
++}
++
++let counter = 0;
++async function registerUser() {
++  counter += 1;
++  const email = `victim${Date.now()}_${counter}@test.dev`;
++  const res = await request(app)
++    .post('/api/auth/register')
++    .send({ name: 'Victim', email, password: 'secret123' });
++  expect(res.status).toBe(201);
++  // The auth cookie the browser will now send automatically on every request.
++  return cookiePairs(res.headers['set-cookie']);
++}
++
++describe('Account settings — recovery email', () => {
++  test('a logged-in user can update their own recovery email (the happy path)', async () => {
++    const authCookies = await registerUser();
++
++    // The real client fetches a CSRF token first. The vulnerable app has no such
++    // endpoint (404) — tolerate that so this control test passes in both projects.
++    let cookies = [...authCookies];
++    const headers = {};
++    const tokenRes = await request(app).get('/api/csrf-token').set('Cookie', cookies.join('; '));
++    if (tokenRes.status === 200) {
++      headers['x-csrf-token'] = tokenRes.body.csrfToken;
++      cookies = [...cookies, ...cookiePairs(tokenRes.headers['set-cookie'])];
++    }
++
++    const res = await request(app)
++      .post('/api/settings/recovery-email')
++      .set('Cookie', cookies.join('; '))
++      .set(headers)
++      .send({ recoveryEmail: 'legit@user.com' });
++    expect(res.status).toBe(200);
++
++    const check = await request(app).get('/api/settings').set('Cookie', authCookies.join('; '));
++    expect(check.status).toBe(200);
++    expect(check.body.settings.recoveryEmail).toBe('legit@user.com');
++  });
++
++  // The core CSRF test. A forged cross-site request carries the victim's auth
++  // cookie (the browser sends it automatically) but NO anti-CSRF token. A secure
++  // server must reject it; a vulnerable one performs the state change.
++  test('a forged cross-site request with no CSRF token is rejected', async () => {
++    const authCookies = await registerUser();
++
++    const forged = await request(app)
++      .post('/api/settings/recovery-email')
++      .set('Cookie', authCookies.join('; ')) // only the auth cookie — as in a real CSRF
++      .set('Origin', 'http://attacker.evil') // request originates off-site
++      .send({ recoveryEmail: 'attacker@evil.com' });
++
++    // Secure behavior: refuse the request for lack of a valid CSRF token.
++    expect(forged.status).toBe(403);
++
++    // And the victim's recovery email must be untouched.
++    const check = await request(app).get('/api/settings').set('Cookie', authCookies.join('; '));
++    expect(check.status).toBe(200);
++    expect(check.body.settings.recoveryEmail).not.toBe('attacker@evil.com');
++  });
++});
