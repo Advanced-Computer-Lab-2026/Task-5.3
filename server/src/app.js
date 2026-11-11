@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfProtection, sendCsrfToken, invalidCsrfTokenError } from './middleware/csrf.js';
 
 const app = express();
 
@@ -21,6 +22,14 @@ app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// Hands the client its anti-CSRF token (and sets the matching cookie).
+app.get('/api/csrf-token', sendCsrfToken);
+
+// Every state-changing request (POST/PUT/PATCH/DELETE) must now carry a valid
+// CSRF token in the `x-csrf-token` header. GETs and login/register are exempt.
+// This must sit after cookieParser and before the routes.
+app.use(csrfProtection);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
@@ -33,6 +42,10 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
+  // A missing or wrong CSRF token: refuse the request, nothing was changed.
+  if (err === invalidCsrfTokenError) {
+    return res.status(403).json({ message: 'Invalid or missing CSRF token' });
+  }
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Server Error' });
 });

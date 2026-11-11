@@ -4,9 +4,9 @@ import { getSettings, updateRecoveryEmail } from '../controllers/settingControll
 
 const router = Router();
 
-// Reading and writing both require a logged-in user. Nothing here checks that
-// the request actually originated from our own app — so the write below is
-// vulnerable to CSRF. The solution project adds that check with `csrf-csrf`.
+// Reading and writing both require a logged-in user. The write is additionally
+// guarded by the CSRF middleware mounted in app.js (`csrf-csrf`), which proves
+// the request originated from our own app before it ever reaches this router.
 router.get('/', requireAuth, getSettings);
 router.post('/recovery-email', requireAuth, updateRecoveryEmail);
 
