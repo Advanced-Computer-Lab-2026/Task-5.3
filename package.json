@@ -9,7 +9,7 @@
   "scripts": {
     "install:all": "npm --workspaces install",
     "dev": "concurrently -n server,client -c blue,magenta \"npm:dev --workspace server\" \"npm:dev --workspace client\"",
-    "test": "node --test"
+    "test": "jest --runInBand"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

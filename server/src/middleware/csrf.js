@@ -18,6 +18,9 @@ export const { generateCsrfToken, doubleCsrfProtection, invalidCsrfTokenError } 
   getSessionIdentifier: (req) => req.cookies.token || req.cookies['csrf-session'] || '',
   cookieName: 'csrf-token',
   cookieOptions,
+  // These routes establish a session and must work before a CSRF token exists.
+  skipCsrfProtection: (req) => req.method === 'POST' &&
+    ['/auth/login', '/auth/register'].includes(req.path),
   getCsrfTokenFromRequest: (req) => req.get('x-csrf-token')
 });
 
