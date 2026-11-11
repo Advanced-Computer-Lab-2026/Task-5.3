@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { csrfTokenHandler, doubleCsrfProtection } from './middleware/csrf.js';
 
 const app = express();
 
@@ -20,6 +21,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Hand out the anti-CSRF token. This is a GET, so the attacker's page can trigger
+// it but CORS stops that page from reading the response.
+app.get('/api/csrf-token', csrfTokenHandler);
+
+// Every state-changing request (POST/PUT/PATCH/DELETE) from here on must carry a
+// valid x-csrf-token header. Safe methods and login/register are exempt.
+app.use(doubleCsrfProtection);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
