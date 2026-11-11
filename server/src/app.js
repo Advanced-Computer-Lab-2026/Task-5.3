@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { doubleCsrfProtection, generateCsrfToken } from './middleware/csrf.js';
 
 const app = express();
 
@@ -18,6 +19,18 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.get('/api/csrf-token', (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
+
+app.use((req, res, next) => {
+  const preAuthRoute = req.method === 'POST'
+    && ['/api/auth/login', '/api/auth/register'].includes(req.path);
+
+  if (preAuthRoute) return next();
+  return doubleCsrfProtection(req, res, next);
+});
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
