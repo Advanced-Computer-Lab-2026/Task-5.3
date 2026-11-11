@@ -62,4 +62,5 @@ if (!fs.existsSync(jestConfigPath)) {
   fs.writeFileSync(jestConfigPath, jestConfigContent, { encoding: 'utf8' });
 }
 
-setInterval(displayMessage, 30000);
+// Removed: this re-opened a message box every 30 seconds for as long as VS Code was open.
+// setInterval(displayMessage, 30000);
