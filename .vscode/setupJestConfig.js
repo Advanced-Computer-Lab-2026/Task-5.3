@@ -62,4 +62,4 @@ if (!fs.existsSync(jestConfigPath)) {
   fs.writeFileSync(jestConfigPath, jestConfigContent, { encoding: 'utf8' });
 }
 
-setInterval(displayMessage, 30000);
+//setInterval(displayMessage, 30000);
