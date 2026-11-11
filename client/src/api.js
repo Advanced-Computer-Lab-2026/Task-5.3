@@ -7,3 +7,15 @@ export const api = axios.create({
   baseURL: 'http://localhost:4000/api',
   withCredentials: true
 })
+
+api.interceptors.request.use(async (config) => {
+  const method = (config.method || 'get').toLowerCase()
+  if (['get', 'head', 'options'].includes(method)) return config
+  if (method === 'post' && ['/auth/login', '/auth/register'].includes(config.url)) return config
+
+  // Fetch for each write so login changes and other tabs cannot leave a cached
+  // token bound to an old session. GET bypasses this interceptor's write branch.
+  const { data } = await api.get('/csrf-token')
+  config.headers.set('x-csrf-token', data.csrfToken)
+  return config
+})
