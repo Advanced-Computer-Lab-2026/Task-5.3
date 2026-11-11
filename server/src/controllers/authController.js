@@ -67,6 +67,11 @@ export async function login(req, res, next) {
 // POST /api/auth/logout
 export async function logout(req, res) {
   res.clearCookie('token');
+  res.clearCookie('csrf-token', {
+    path: '/',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production'
+  });
   res.json({ ok: true });
 }
 

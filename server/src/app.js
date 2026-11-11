@@ -6,6 +6,8 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { requireAuth } from './middleware/auth.js';
+import { generateCsrfToken } from './middleware/csrf.js';
 
 const app = express();
 
@@ -22,6 +24,11 @@ app.use(cookieParser());
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
+// The token is only issued to an authenticated session. The auth cookie stays
+// HttpOnly; the client receives this separate, session-bound token in JSON.
+app.get('/api/csrf-token', requireAuth, (req, res) => {
+  res.json({ csrfToken: generateCsrfToken(req, res) });
+});
 app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
@@ -34,7 +41,7 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Server Error' });
+  res.status(err.status || err.statusCode || 500).json({ message: err.message || 'Server Error' });
 });
 
 export default app;
