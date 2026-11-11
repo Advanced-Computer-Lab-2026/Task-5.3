@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
 import settingRoutes from './routes/settings.js';
+import { doubleCsrfProtection, csrfTokenHandler } from './middleware/csrf.js';
 
 const app = express();
 
@@ -18,6 +19,10 @@ app.use(express.json());
 // <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// CSRF: issue a per-session token, then require it on every state-changing request.
+app.get('/api/csrf-token', csrfTokenHandler);
+app.use(doubleCsrfProtection);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
