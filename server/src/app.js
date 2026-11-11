@@ -2,6 +2,8 @@ import express from 'express';
 import morgan from 'morgan';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import { doubleCsrf } from 'csrf-csrf';
+
 import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import userRoutes from './routes/users.js';
@@ -10,14 +12,47 @@ import settingRoutes from './routes/settings.js';
 const app = express();
 
 app.use(morgan('dev'));
-// The browser must be allowed to send the auth cookie on cross-origin XHR,
-// so CORS is locked to the client origin AND credentials are enabled.
-app.use(cors({ origin: 'http://localhost:5175', credentials: true }));
+app.use(cors({
+  origin: 'http://localhost:5175',
+  credentials: true
+}));
 app.use(express.json());
-// Parse HTML-form bodies too. A classic CSRF payload is an auto-submitting
-// <form> (application/x-www-form-urlencoded), so the endpoints must understand it.
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+const {
+  generateCsrfToken,
+  doubleCsrfProtection
+} = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET || 'test-csrf-secret',
+  getSessionIdentifier: (req) => req.cookies?.token || req.ip,
+  cookieName: 'x-csrf-token',
+  cookieOptions: {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: false,
+    path: '/'
+  },
+  getCsrfTokenFromRequest: (req) => req.headers['x-csrf-token'],
+  size: 64,
+  ignoredMethods: ['GET', 'HEAD', 'OPTIONS']
+});
+
+app.get('/api/csrf-token', (req, res) => {
+  const csrfToken = generateCsrfToken(req, res);
+  res.json({ csrfToken });
+});
+
+app.use((req, res, next) => {
+  if (
+    req.method === 'POST' &&
+    ['/api/auth/login', '/api/auth/register'].includes(req.path)
+  ) {
+    return next();
+  }
+
+  return doubleCsrfProtection(req, res, next);
+});
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
@@ -26,15 +61,15 @@ app.use('/api/items', itemRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingRoutes);
 
-// Not found
 app.use((req, res) => {
   res.status(404).json({ message: 'Not Found' });
 });
 
-// Error handler
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Server Error' });
+  res.status(err.status || err.statusCode || 500).json({
+    message: err.message || 'Server Error'
+  });
 });
 
 export default app;
